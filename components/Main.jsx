@@ -1,8 +1,9 @@
-import MapWrap from "./MapWrap";
+import MapContainer from "./MapContainer";
+
 const Main = () => {
   return (
     <>
-      <MapWrap />
+      <MapContainer />
     </>
   );
 };

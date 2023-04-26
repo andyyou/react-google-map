@@ -1,38 +1,57 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Google Map, Clusters, for React
 
-## Getting Started
+## 介紹
 
-First, run the development server:
+本範例嘗試使用 Google 官方的 React Wrapper 函式庫實作 Google Map 功能，目標為自訂 MapOverView 達成在 Map 上加入複雜的 Marker。
+例如像 Airbnb 點擊房源時可以展開。這個範例我們會支援 [Marker Clustering](https://developers.google.com/maps/documentation/javascript/marker-clustering)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+## 建立專案
+
+```sh
+$ npx create-next-app demo
+$ cd demo
+
+# 安裝相依套件
+$ npm i @googlemaps/react-wrapper @googlemaps/markerclusterer
+
+# OR
+
+$ git clone
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 取得 Google Map 金鑰
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+參考 [Google 官方教學](https://developers.google.com/maps/documentation/javascript/get-api-key) 取得金鑰。
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+## 抽取負責顯示地圖的容器元件
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+```sh
+$ mkdir components
+$ touch components/MapContainer
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+```js
+import { Wrapper, Status } from "@googlemaps/react-wrapper";
+import Map from "./Map";
 
-## Learn More
+const render = (status) => {
+  switch (status) {
+    case Status.FAILURE:
+      return <div>Error</div>;
+  }
+  return <div>Loading...</div>;
+};
 
-To learn more about Next.js, take a look at the following resources:
+const MapContainer = () => {
+  return (
+    <Wrapper
+      apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAP_API_KEY}
+      render={render}
+    >
+      <Map />
+    </Wrapper>
+  );
+};
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+export default MapContainer;
+```

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Google Places Autocomplete Example</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=API_KEY&libraries=places"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        function initAutocomplete() {
+          const input = document.createElement("input");
+          document.body.appendChild(input);
+
+          const autocomplete = new google.maps.places.Autocomplete(input);
+
+          autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            console.log(place);
+          });
+
+          const autocompleteService =
+            new google.maps.places.AutocompleteService();
+          input.addEventListener("input", () => {
+            const query = input.value;
+            if (query.length < 3) {
+              return;
+            }
+
+            autocompleteService.getPlacePredictions(
+              { input: query },
+              (predictions, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                  console.log("Predictions:", predictions);
+                }
+              }
+            );
+          });
+        }
+
+        initAutocomplete();
+      });
+    </script>
+  </head>
+  <body></body>
+</html>

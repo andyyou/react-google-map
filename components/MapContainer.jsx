@@ -9,7 +9,7 @@ const render = (status) => {
   return <div>Loading...</div>;
 };
 
-const MapWrap = () => {
+const MapContainer = () => {
   return (
     <Wrapper
       apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAP_API_KEY}
@@ -20,4 +20,4 @@ const MapWrap = () => {
   );
 };
 
-export default MapWrap;
+export default MapContainer;
