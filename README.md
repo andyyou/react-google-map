@@ -2,8 +2,12 @@
 
 ## 介紹
 
+如過您希望製作像 Airbnb 那樣自訂標記的樣式，動態顯示一些資訊並且當用戶和其互動時可以渲染自訂的 React 元件，那麼您來對地方了。
+
 本範例嘗試使用 Google 官方的 React Wrapper 函式庫實作 Google Map 功能，目標為自訂 MapOverView 達成在 Map 上加入複雜的 Marker。
 例如像 Airbnb 點擊房源時可以展開。這個範例我們會支援 [Marker Clustering](https://developers.google.com/maps/documentation/javascript/marker-clustering)
+
+本範例使用 Next.js 整合 [Google Map 官方的套件](https://developers.google.com/maps/documentation/javascript/react-map)。
 
 ## 建立專案
 
@@ -27,10 +31,10 @@ $ git clone
 
 ```sh
 $ mkdir components
-$ touch components/MapContainer
 ```
 
 ```js
+// MapContainer.jsx
 import { Wrapper, Status } from "@googlemaps/react-wrapper";
 import Map from "./Map";
 
@@ -55,3 +59,278 @@ const MapContainer = () => {
 
 export default MapContainer;
 ```
+
+接著在建立一個 Map 元件，為了單純我們直接把如何初始化一個 Map 和 Markers 的邏輯統一在一個檔案。
+
+```js
+// Map.jsx
+import { useRef, useEffect, useState } from "react";
+
+import { BUILDINGS } from "@/constaints";
+
+const DEFAULT_MAP_CENTER = {
+  lat: 25.05807,
+  lng: 121.53748,
+};
+const DEFAULT_MAP_ZOOM = 15;
+
+const Map = () => {
+  const ref = useRef(null);
+  const [center, setCenter] = useState(DEFAULT_MAP_CENTER);
+  const [zoom, setZoom] = useState(DEFAULT_MAP_ZOOM);
+  const [map, setMap] = useState(null);
+
+  // You can extract functions out of the component as props.
+  const onClick = (e) => {};
+  const onDrag = (e) => {};
+  const onBoundsChanged = (googleMap) => {
+    // const bounds = map.getBounds();
+    // const ne = bounds.getNorthEast();
+    // const sw = bounds.getSouthWest();
+  };
+  const onCenterChanged = (googleMap) => {};
+
+  useEffect(() => {
+    if (ref.current && !map) {
+      // 初始化 Google Map
+      const googleMap = new window.google.maps.Map(ref.current, {
+        center,
+        zoom,
+        disableDefaultUI: true,
+        clickableIcons: false,
+        disableDoubleClickZoom: true,
+        gestureHandling: "greedy",
+      });
+
+      googleMap.addListener("click", onClick);
+      googleMap.addListener("drag", onDrag);
+      googleMap.addListener("bounds_changed", () => onBoundsChanged(googleMap));
+      googleMap.addListener("center_changed", () => onCenterChanged(googleMap));
+
+      // (補充)：最基本加入 Markers 的方式，但這裡我們只是示範。請移除。
+      // const infoWindow = new window.google.maps.InfoWindow();
+      // const markers = BUILDINGS.map((item, i) => {
+      //   const label = item.name;
+      //   const marker = new window.google.maps.Marker({
+      //     position: {
+      //       lat: item.lat,
+      //       lng: item.lon,
+      //     },
+      //     label,
+      //     map: googleMap,
+      //   });
+
+      //   marker.addListener("click", () => {
+      //     infoWindow.setContent(label);
+      //     infoWindow.open(googleMap, marker);
+      //   });
+      //   return marker;
+      // });
+
+      setMap(googleMap);
+    }
+  }, [center, zoom, map]);
+
+  return <div id="map" ref={ref} className="w-full h-full"></div>;
+};
+
+export default Map;
+```
+
+到此您已經實作出最基本的功能了。
+
+## 使用 MapOverView 自訂 Marker
+
+這裡我們將會使用 OverlayView 類別而不是一般 Marker？因為我們的需求效果使用一般 Marker 很難做到。官方提到 Marker 只能變更 icon 圖片和 label。
+而 Google Map API 提供了 [OverlayView Class](https://developers.google.com/maps/documentation/javascript/reference/overlay-view#OverlayView)
+
+> 如果您不需要複雜的 Marker 您可以[參考官方教學](https://developers.google.com/maps/documentation/javascript/custom-markers)找到適合您的作法。
+
+> [OverlayView](https://developers.google.com/maps/documentation/javascript/customoverlays) 是綁定經緯度座標，在地圖上的物件。當您拖動或縮放地圖時，它們會隨地圖一起移動。
+> Maps JavaScript API 提供了一個名為 OverlayView 的類別，用於創建自定義的覆蓋物。OverlayView 是一個基礎類別，當您創建自己的覆蓋物時，需要實現它提供的幾個方法。此外，該類別還提供了一些方法，可以在屏幕坐標和地圖上的位置之間進行轉換。
+
+因此讓我們來建立一個 `MapOverlayView` 元件。首先我們需要實作一個 class 繼承 `google.maps.OverlayView` 並至少需要實作 `onAdd`, `onRemove`, `draw` 。不過為了將 React 元件和 Google Map 接起來我們在建立的過程還需要掛載一個元素進去。範例如下
+
+```js
+// MapOverlay.jsx
+import { useMemo, useEffect, memo } from "react";
+import { createPortal } from "react-dom";
+
+/**
+ *
+ * @param props { element: HTMLElement, position: { lat: number, lng: number }
+ * @returns {MapOverlayView}
+ */
+const createMapOverlayViewInstance = (props) => {
+  class MapOverlayView extends window.google.maps.OverlayView {
+    element = null;
+    position = null;
+
+    constructor(element, position) {
+      super();
+      this.element = element;
+      this.position = position;
+    }
+
+    getPosition() {
+      return new window.google.maps.LatLng(
+        this.position.lat,
+        this.position.lng
+      );
+    }
+
+    getVisible() {
+      return true;
+    }
+
+    onAdd() {
+      this.getPanes().floatPane.appendChild(this.element);
+    }
+
+    onRemove() {
+      if (this.element.parentNode) {
+        this.element.parentNode.removeChild(this.element);
+      }
+    }
+
+    draw() {
+      const projection = this.getProjection();
+      const position = this.getPosition();
+      const point = projection.fromLatLngToDivPixel(position);
+
+      if (!point) {
+        return;
+      }
+
+      this.element.style.transform = `translate(${point.x}px, ${point.y}px)`;
+      // this.element.style.left = `${point.x}px`;
+      // this.element.style.top = `${point.y}px`;
+    }
+  }
+
+  return new MapOverlayView(props.element, props.position);
+};
+
+/**
+ * 方便我們使用 React 元件的方式建立 OverlayView
+ * @param props { map: google.maps.Map, position: { lat: number, lng: number }, zIndex: number, children: React.ReactNode }
+ * @returns {JSX.Element}
+ */
+const MapOverlayView = ({ map, position, zIndex, children }) => {
+  const element = useMemo(() => {
+    const div = document.createElement("div");
+    div.style.position = "absolute";
+    return div;
+  }, []);
+
+  const overlay = useMemo(() => {
+    return createMapOverlayViewInstance({ element, position });
+  }, [element, position]);
+
+  useEffect(() => {
+    overlay?.setMap(map);
+    return () => {
+      overlay?.setMap(null);
+    };
+  }, [overlay, map]);
+
+  useEffect(() => {
+    element.style.zIndex = `${zIndex}`;
+  }, [element, zIndex]);
+
+  return createPortal(children, element);
+};
+
+export default memo(MapOverlayView);
+```
+
+上面這個元件目的是協助我們之後藉由將其他元件擺在 `MapOverlayView` 裡面作為子元素時可以建立 Google Map 的 OverlayView。
+
+## 建立 MapMarker 和子元件
+
+接著，讓我們使用 MapOverlay 元件來建立我們的 Marker 就是 `MapMarker.jsx` 和其顯示的內容。
+
+```js
+// MapMarker.jsx
+import { useState, memo } from "react";
+
+import MapOverlay from "./MapOverlay";
+import MapCard from "./MapCard";
+import MapButton from "./MapButton";
+
+const MapMarker = ({ map, data }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const handleToggle = () => {
+    console.log("handleToggle", isOpen);
+    setIsOpen((prev) => !prev);
+  };
+
+  return (
+    map && (
+      <MapOverlay
+        map={map}
+        position={{
+          lat: data.lat,
+          lng: data.lon,
+        }}
+      >
+        <div
+          className="flex flex-col relative justify-center items-center"
+          onTouchStart={(e) => {
+            // Avoid click event on Google Map.
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            // Avoid click event on Google Map.
+            // e.stopPropagation();
+          }}
+        >
+          {isOpen && <MapCard data={data} />}
+          <MapButton onClick={handleToggle}>{data.name}</MapButton>
+        </div>
+      </MapOverlay>
+    )
+  );
+};
+
+export default memo(MapMarker);
+```
+
+內容您可以依據您自行的需求調整元件，這裡做一個簡單的開關卡片的效果
+
+```js
+// MapButton.jsx
+const MapButton = ({ children, onClick }) => {
+  return (
+    <button
+      type="button"
+      className="px-2 py-1 rounded-full bg-white border-2 border-black font-bold text-sm hover:bg-gray-200 transition duration-300 ease-in-out"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+};
+
+export default MapButton;
+```
+
+```js
+// MapCard.jsx
+const MapCard = ({ data }) => {
+  return (
+    <div className="min-w-[150px] p-4 rounded border-1 border-black bg-white absolute bottom-[36px]">
+      <div className="flex flex-col text-md font-bold text-lg">{data.name}</div>
+      <div className="flex flex-col text-md text-sm text-slate-500">
+        {data.city + data.zone + data.road}
+      </div>
+    </div>
+  );
+};
+
+export default MapCard;
+```
+
+![](./public/demo-1.png)
+
+##
