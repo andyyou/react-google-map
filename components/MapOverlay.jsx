@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
  * @param props { element: HTMLElement, position: { lat: number, lng: number }
  * @returns {MapOverlayView}
  */
-const createMapOverlayViewInstance = (props) => {
+export const createMapOverlayViewInstance = (props) => {
   class MapOverlayView extends window.google.maps.OverlayView {
     element = null;
     position = null;
@@ -47,9 +47,9 @@ const createMapOverlayViewInstance = (props) => {
         return;
       }
 
-      this.element.style.transform = `translate(${point.x}px, ${point.y}px)`;
-      // this.element.style.left = `${point.x}px`;
-      // this.element.style.top = `${point.y}px`;
+      // this.element.style.transform = `translate(${point.x}px, ${point.y}px)`;
+      this.element.style.left = `${point.x}px`;
+      this.element.style.top = `${point.y}px`;
     }
   }
 
@@ -61,7 +61,7 @@ const createMapOverlayViewInstance = (props) => {
  * @param props { map: google.maps.Map, position: { lat: number, lng: number }, zIndex: number, children: React.ReactNode }
  * @returns {JSX.Element}
  */
-const MapOverlayView = ({ map, position, zIndex, children }) => {
+const MapOverlayView = ({ map, cluster, position, zIndex, children }) => {
   const element = useMemo(() => {
     const div = document.createElement("div");
     div.style.position = "absolute";
@@ -74,10 +74,19 @@ const MapOverlayView = ({ map, position, zIndex, children }) => {
 
   useEffect(() => {
     overlay?.setMap(map);
+
     return () => {
+      cluster?.removeMarker(overlay);
       overlay?.setMap(null);
     };
-  }, [overlay, map]);
+  }, [overlay, map, cluster]);
+
+  useEffect(() => {
+    cluster?.addMarker(overlay);
+    return () => {
+      cluster?.removeMarker(overlay);
+    };
+  }, [cluster, overlay]);
 
   useEffect(() => {
     element.style.zIndex = `${zIndex}`;

@@ -2,6 +2,8 @@
 
 ## 介紹
 
+![](./public/demo-1.png)
+
 如過您希望製作像 Airbnb 那樣自訂標記的樣式，動態顯示一些資訊並且當用戶和其互動時可以渲染自訂的 React 元件，那麼您來對地方了。
 
 本範例嘗試使用 Google 官方的 React Wrapper 函式庫實作 Google Map 功能，目標為自訂 MapOverView 達成在 Map 上加入複雜的 Marker。
@@ -261,7 +263,6 @@ import MapButton from "./MapButton";
 const MapMarker = ({ map, data }) => {
   const [isOpen, setIsOpen] = useState(false);
   const handleToggle = () => {
-    console.log("handleToggle", isOpen);
     setIsOpen((prev) => !prev);
   };
 
@@ -331,6 +332,97 @@ const MapCard = ({ data }) => {
 export default MapCard;
 ```
 
-![](./public/demo-1.png)
+## 進階 - 支援 Cluster （聚合功能）
 
-##
+要支援聚合功能並不複雜，我們可以使用官方提供的[函式庫](https://github.com/googlemaps/js-markerclusterer)來完成。
+
+```sh
+$ npm i @googlemaps/markerclusterer
+```
+
+基本的用法
+
+```js
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
+
+const markerCluster = new MarkerClusterer({ map, markers });
+```
+
+現在我們來整合到我們的範例，首先到我們的 `Map.jsx` 加入 MarkerClusterer 的部分
+
+```js
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
+// ...
+const Map = () => {
+  // ...
+
+  useEffect(() => {
+    if (ref.current && !map && !cluster) {
+      // ...
+      const googleMarkerCluster = new MarkerClusterer({
+        map: googleMap,
+        renderer: {
+          render: ({ count, position }) => {
+            const svg = `
+              <svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="19" stroke="black" stroke-width="2" fill="white" />
+                <text x="20" y="24" font-size="14px" font-weight="bold" text-anchor="middle" fill="black">${count}</text>
+              </svg>
+            `;
+
+            const url =
+              "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+
+            const icon = {
+              url: url,
+              size: new google.maps.Size(40, 40),
+              origin: new google.maps.Point(0, 0),
+              anchor: new google.maps.Point(20, 20),
+              scaledSize: new google.maps.Size(40, 40),
+            };
+
+            return new google.maps.Marker({
+              position: position,
+              icon: icon,
+            });
+          },
+        },
+      });
+      setMap(googleMap);
+      setCluster(googleMarkerCluster);
+    }
+  }, [center, zoom, map, cluster]);
+
+  return (
+    <>
+      <div id="map" ref={ref} className="w-full h-full"></div>
+      {map &&
+        BUILDINGS.map((building) => {
+          return (
+            <MapMarker
+              map={map}
+              cluster={cluster}
+              data={building}
+              key={building.id}
+            />
+          );
+        })}
+    </>
+  );
+};
+
+export default Map;
+```
+
+接著我們將 `cluster` 傳入 `MapMarker` 在傳入 `MapOverlay`
+
+最後在 `MapOverlay` 中我們將點加入叢集
+
+```js
+useEffect(() => {
+  cluster?.addMarker(overlay);
+  return () => {
+    cluster?.removeMarker(overlay);
+  };
+}, [cluster, overlay]);
+```

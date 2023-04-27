@@ -4,10 +4,9 @@ import MapOverlay from "./MapOverlay";
 import MapCard from "./MapCard";
 import MapButton from "./MapButton";
 
-const MapMarker = ({ map, data }) => {
+const MapMarker = ({ map, cluster, data }) => {
   const [isOpen, setIsOpen] = useState(false);
   const handleToggle = () => {
-    console.log("handleToggle", isOpen);
     setIsOpen((prev) => !prev);
   };
 
@@ -15,6 +14,7 @@ const MapMarker = ({ map, data }) => {
     map && (
       <MapOverlay
         map={map}
+        cluster={cluster}
         position={{
           lat: data.lat,
           lng: data.lon,
@@ -31,7 +31,8 @@ const MapMarker = ({ map, data }) => {
             // e.stopPropagation();
           }}
         >
-          {isOpen && <MapCard data={data} />}
+          <MapCard data={data} isOpen={isOpen} />
+          {/* {isOpen && <MapCard data={data} />} */}
           <MapButton onClick={handleToggle}>{data.name}</MapButton>
         </div>
       </MapOverlay>
